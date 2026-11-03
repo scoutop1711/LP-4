@@ -1,0 +1,121 @@
+
+# Assignment 5C: Transfer Learning using ResNet50
+
+# 1. Import libraries
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+
+# 2. Load dataset
+DATA_DIR = "fashion mnist"
+
+datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
+    validation_split=0.2
+)
+
+train_data = datagen.flow_from_directory(
+    DATA_DIR,
+    target_size=(224, 224),
+    color_mode='rgb',
+    batch_size=32,
+    class_mode='categorical',
+    subset='training'
+)
+
+val_data = datagen.flow_from_directory(
+    DATA_DIR,
+    target_size=(224, 224),
+    color_mode='rgb',
+    batch_size=32,
+    class_mode='categorical',
+    subset='validation'
+)
+
+# 3. Load pre-trained ResNet50
+base_model = ResNet50(
+    weights='imagenet',
+    include_top=False,
+    input_shape=(224, 224, 3)
+)
+
+# 4. Freeze base model
+base_model.trainable = False
+
+# 5. Add classification layers
+model = Sequential([
+    base_model,
+    GlobalAveragePooling2D(),
+    Dense(128, activation='relu'),
+    Dense(train_data.num_classes, activation='softmax')
+])
+
+# 6. Compile model
+model.compile(
+    optimizer='adam',
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 7. Train model
+history = model.fit(
+    train_data,
+    epochs=5,
+    validation_data=val_data
+)
+
+# 8. Evaluate model
+loss, accuracy = model.evaluate(val_data)
+
+print("Validation Loss:", loss)
+print("Validation Accuracy:", accuracy)
+
+# 9. Plot accuracy
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+# 10. Plot loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+# 11. Visualize predictions
+images, labels = next(val_data)
+
+predictions = model.predict(images)
+
+class_names = list(val_data.class_indices.keys())
+
+plt.figure(figsize=(10, 6))
+
+for i in range(6):
+    plt.subplot(2, 3, i+1)
+
+    actual = np.argmax(labels[i])
+    predicted = np.argmax(predictions[i])
+
+    plt.imshow(plt.imread(val_data.filepaths[i]))
+
+    plt.title(
+        "Actual: " + class_names[actual] +
+        "\nPredicted: " + class_names[predicted]
+    )
+
+    plt.axis('off')
+
+plt.tight_layout()
+plt.show()
